@@ -162,7 +162,73 @@ body {
 
 /* Diff Output */
 #out { max-width: 98%; margin: 10px auto 0; padding: 0 15px 40px; }
-.diff-names { font-family: var(--mono); font-size: 11px; color: var(--muted); display: flex; align-items: center; gap: 8px; flex: 1; }
+.diff-names { 
+  font-family: var(--mono); 
+  font-size: 11px; 
+  color: var(--muted); 
+  display: flex; 
+  align-items: center; 
+  gap: 8px; 
+  flex: 1; 
+  flex-wrap: wrap;
+}
+
+/* Similarity Badge */
+.diff-sim-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 9px;
+  border-radius: 12px;
+  font-size: 10.5px;
+  font-weight: 600;
+  font-family: var(--ui);
+  line-height: 1.4;
+  letter-spacing: 0.2px;
+  margin-left: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  user-select: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.diff-sim-badge .sim-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.diff-sim-badge.sim-high {
+  background: rgba(78, 201, 176, 0.12);
+  border-color: rgba(78, 201, 176, 0.35);
+  color: var(--add-fg);
+}
+.diff-sim-badge.sim-high .sim-dot {
+  background: var(--add-fg);
+  box-shadow: 0 0 6px rgba(78, 201, 176, 0.7);
+}
+.diff-sim-badge.sim-med {
+  background: rgba(220, 220, 170, 0.12);
+  border-color: rgba(220, 220, 170, 0.35);
+  color: var(--syn-fn);
+}
+.diff-sim-badge.sim-med .sim-dot {
+  background: var(--syn-fn);
+  box-shadow: 0 0 6px rgba(220, 220, 170, 0.7);
+}
+.diff-sim-badge.sim-low {
+  background: rgba(244, 135, 113, 0.12);
+  border-color: rgba(244, 135, 113, 0.35);
+  color: var(--del-fg);
+}
+.diff-sim-badge.sim-low .sim-dot {
+  background: var(--del-fg);
+  box-shadow: 0 0 6px rgba(244, 135, 113, 0.7);
+}
+
 .lang-badges-wrap {
   display: inline-flex;
   align-items: center;

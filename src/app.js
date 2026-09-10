@@ -382,6 +382,78 @@ function computeWordDiff(strA, strB, ignWS = false, normTabs = true) {
   return { htmlA, htmlB };
 }
 
+// Calculate text similarity percentage (0 - 100%)
+function calculateSimilarity(textA, textB, ops, linesA, linesB) {
+  if (textA === textB) return 100;
+  if (!textA || !textB) return 0;
+
+  let matchedUnits = 0;
+  let totalUnitsA = 0;
+  let totalUnitsB = 0;
+
+  let i = 0;
+  while (i < ops.length) {
+    const op = ops[i];
+    if (op.t === '=') {
+      const len = Math.max(linesA[op.a].length, 1);
+      matchedUnits += len;
+      totalUnitsA += len;
+      totalUnitsB += len;
+      i++;
+    } else {
+      const blockDels = [];
+      const blockAdds = [];
+      while (i < ops.length && ops[i].t !== '=') {
+        if (ops[i].t === '-') blockDels.push(ops[i]);
+        if (ops[i].t === '+') blockAdds.push(ops[i]);
+        i++;
+      }
+
+      const pairs = Math.min(blockDels.length, blockAdds.length);
+      for (let p = 0; p < pairs; p++) {
+        const strA = linesA[blockDels[p].a];
+        const strB = linesB[blockAdds[p].b];
+        const lenA = Math.max(strA.length, 1);
+        const lenB = Math.max(strB.length, 1);
+        totalUnitsA += lenA;
+        totalUnitsB += lenB;
+
+        // Intra-line match for modified line pairs
+        const tokA = tokenizeLine(strA);
+        const tokB = tokenizeLine(strB);
+        if (tokA.length <= 300 && tokB.length <= 300) {
+          const wordOps = myers(tokA, tokB);
+          let matchedLen = 0;
+          wordOps.forEach(wOp => {
+            if (wOp.t === '=') matchedLen += tokA[wOp.a].length;
+          });
+          matchedUnits += matchedLen;
+        }
+      }
+
+      for (let p = pairs; p < blockDels.length; p++) {
+        totalUnitsA += Math.max(linesA[blockDels[p].a].length, 1);
+      }
+      for (let p = pairs; p < blockAdds.length; p++) {
+        totalUnitsB += Math.max(linesB[blockAdds[p].b].length, 1);
+      }
+    }
+  }
+
+  const totalUnits = totalUnitsA + totalUnitsB;
+  if (totalUnits === 0) return 100;
+  const ratio = (2 * matchedUnits) / totalUnits;
+  return Math.max(0, Math.min(100, ratio * 100));
+}
+
+function formatSimilarity(sim) {
+  if (sim >= 100) return '100%';
+  if (sim <= 0) return '0%';
+  if (sim > 99 && sim < 100) return sim.toFixed(1) + '%';
+  if (sim > 0 && sim < 1) return sim.toFixed(1) + '%';
+  return Math.round(sim) + '%';
+}
+
 // Find single-line comment boundary
 function findCommentIndex(str) {
   let idx = str.indexOf('//');
@@ -504,6 +576,8 @@ function runDiff() {
   let adds = 0, dels = 0;
   ops.forEach(op => { if(op.t==='+') adds++; if(op.t==='-') dels++; });
 
+  const similarity = calculateSimilarity(STATE.a, STATE.b, ops, linesA, linesB);
+
   const isFull = STATE.viewMode === 'full';
   const hunks = getHunks(ops, isFull);
   let tableHTML = '';
@@ -516,7 +590,7 @@ function runDiff() {
     tableHTML = `<colgroup><col class="ln"><col><col style="width:1px"><col class="ln"><col></colgroup><tbody>` + renderSplit(hunks, linesA, linesB, ignWS, normTabs, isFull) + `</tbody>`;
   }
 
-  id('diff-hdr-slot').innerHTML = buildHeader(adds, dels);
+  id('diff-hdr-slot').innerHTML = buildHeader(adds, dels, similarity);
 
   const minimapHTML = (hunks.length > 0 && STATE.showMinimap) ? buildMinimapHTML(adds, dels) : '';
 
@@ -647,18 +721,34 @@ function renderUnified(hunks, linesA, linesB, ignWS, normTabs) {
   return html;
 }
 
-function buildHeader(adds, dels) {
+function buildHeader(adds, dels, similarity = 100) {
+  const isIdentical = (adds === 0 && dels === 0);
   const total = (adds + dels) || 1;
   const pAdd = Math.round((adds / total) * 5);
-  const bar = '<span style="background:var(--add-fg)"></span>'.repeat(pAdd) + '<span style="background:var(--del-fg)"></span>'.repeat(5 - pAdd);
+  const bar = isIdentical
+    ? '<span style="background:var(--add-fg)"></span>'.repeat(5)
+    : '<span style="background:var(--add-fg)"></span>'.repeat(pAdd) + '<span style="background:var(--del-fg)"></span>'.repeat(5 - pAdd);
   
   const langBadgesHtml = renderLanguageBadges(STATE.nameA, STATE.nameB, STATE.a, STATE.b);
+
+  let simClass = 'sim-high';
+  if (similarity < 40) {
+    simClass = 'sim-low';
+  } else if (similarity < 75) {
+    simClass = 'sim-med';
+  }
+
+  const simFormatted = formatSimilarity(similarity);
 
   return `<div class="diff-hdr">
     <div class="diff-names">
       <span style="color:var(--del-fg)">${esc(STATE.nameA || 'File A')}</span>
       <span style="color:var(--subtle)">→</span>
       <span style="color:var(--add-fg)">${esc(STATE.nameB || 'File B')}</span>
+      <span class="diff-sim-badge ${simClass}" title="Text similarity: ${simFormatted} content match (+${adds} / -${dels})">
+        <span class="sim-dot"></span>
+        <span class="sim-val">${simFormatted} match</span>
+      </span>
     </div>
     ${langBadgesHtml}
     <div class="diff-stats">

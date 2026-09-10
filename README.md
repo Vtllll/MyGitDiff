@@ -15,9 +15,21 @@
 
 ## 💡 Why This Project?
 
-**MyGitDiff** was created for situations where different versions of code or files are kept separately (such as standalone backups, separate folders, or external releases) without a shared Git commit history. 
+**MyGitDiff** was created for situations where different versions of code or files are kept separately without a shared Git commit history. It provides an instant, privacy-first way to inspect and compare discrepancies between independent files or code snippets — with zero setup, zero CLI dependencies, and no cloud uploads.
 
-It provides an instant, privacy-first way to inspect and compare discrepancies between independent files or code snippets — with zero setup, zero CLI dependencies, and no cloud uploads.
+### 🎯 Use Cases
+- **Files in `.gitignore`** — inspect files normally ignored by Git
+- **Secrets & Environments** — compare `.env`, credentials, and server configs safely
+- **No-Git Sources** — ZIP archives, client deliverables, standalone backups
+- **Server Logs & Traces** — spot differences in long logs and stack traces
+- **API Responses & Payloads** — compare JSON/YAML responses between endpoints
+- **SQL Dumps & Schemas** — review database schema and migration differences
+- **Ad-hoc Code Review** — instant comparison during calls without pushing branches
+
+### ⚡ Advantages over Git Workflow
+- **No Git Pollution** — no disposable branches, stash clutter, or throwaway commits
+- **Scratchpad Diff** — compare directly from clipboard without creating files
+- **100% Offline & Private** — zero server uploads, completely safe for confidential data
 
 ---
 
@@ -29,6 +41,9 @@ It provides an instant, privacy-first way to inspect and compare discrepancies b
   ![View Modes](Pictures/modes.png)
 
 - 🔍 **Intra-line Word Diff** — Granular character/word-level diff highlighting within modified lines.
+- 📊 **Similarity Match Percentage** — Real-time content similarity score (0–100%) with dynamic status pill (`high`, `medium`, `low`) displayed right beside file names.
+  
+  ![Similarity Match Percentage](Pictures/prc.png)
 - 📁 **Effortless Input** — Drag & drop files onto panels, use file pickers, or paste directly from clipboard.
 - ✏️ **Built-in Text Editor** — Dedicated modal editor to paste and edit code snippets directly without saving files.
 - 🔄 **Swap & Clear** — Instantly swap File A and File B in one click, or clear the workspace.
