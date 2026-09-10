@@ -73,6 +73,23 @@
         <button class="btn btn-secondary btn-sm" onclick="resetAll()" title="Clear workspace">
           🗑️ Clear
         </button>
+
+        <button class="btn btn-sm btn-log-mode" id="btn-log-mode"
+                onclick="toggleLogMode()" title="Log Comparison Mode: ignore timestamps, IPs, PIDs"
+                disabled>
+          🪵 Log Mode
+        </button>
+      </div>
+
+      <!-- Log Controls Row (visible when Log Mode is active) -->
+      <div id="log-controls" class="log-controls" style="display:none">
+        <div id="log-pattern-pills" class="log-pattern-pills"></div>
+        <input type="text" id="log-pattern-input" class="log-pattern-input"
+               placeholder="CHANGE PATTERN — paste or drag a sample log line…"
+               onpaste="handleLogPatternPaste(event)"
+               ondragover="event.preventDefault(); event.stopPropagation();"
+               ondrop="handleLogPatternDrop(event)"
+               title="Paste or drag a log line to build a custom ignore pattern">
       </div>
 
       <div class="controls-right">
@@ -135,6 +152,45 @@
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeTextModal()">Cancel</button>
       <button class="btn btn-primary" onclick="applyTextModal()">Compare Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Log Pattern Builder Modal -->
+<div class="modal-overlay" id="log-pattern-modal" style="display:none;"
+     onclick="if(event.target===this) closeLogPatternModal()">
+  <div class="modal-card modal-card--log">
+    <div class="modal-header">
+      <div class="modal-title">🔍 Log Pattern Builder</div>
+      <span style="font-size:11px;color:var(--muted)">Click tokens to mark as &quot;ignored&quot;</span>
+      <button class="btn-close" onclick="closeLogPatternModal()" title="Close">✕</button>
+    </div>
+    <div class="log-pattern-builder-body">
+      <!-- Left: tokenized log text -->
+      <div class="log-pattern-editor-col">
+        <div class="modal-col-hdr">
+          <span>Sample log line — click to toggle ignore</span>
+          <button class="btn btn-secondary btn-sm" onclick="clearLogSelection()">Clear</button>
+        </div>
+        <div id="log-pattern-editor" class="log-pattern-editor"></div>
+      </div>
+      <!-- Right: preview -->
+      <div class="log-pattern-preview-col">
+        <div class="modal-col-hdr"><span>Pattern &amp; Preview</span></div>
+        <div class="log-pattern-preview-box">
+          <label class="log-preview-label">Pattern name</label>
+          <input type="text" id="log-pattern-name" class="log-pattern-name-input"
+                 placeholder="e.g. Nginx, Spring Boot…">
+          <label class="log-preview-label" style="margin-top:12px">Generated regex</label>
+          <code id="log-pattern-regex-display" class="log-pattern-regex">—</code>
+          <label class="log-preview-label" style="margin-top:12px">Live test</label>
+          <div id="log-pattern-test-preview" class="log-pattern-test-preview"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeLogPatternModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveLogPattern()">💾 Save Log Pattern</button>
     </div>
   </div>
 </div>

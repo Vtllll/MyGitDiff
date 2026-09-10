@@ -5,8 +5,23 @@ const STATE = {
   nameB: '', 
   viewMode: 'split',
   showMinimap: true,
-  minimapRows: []
+  minimapRows: [],
+  logMode: false,
+  logPatterns: [],
 };
+
+const LOG_AUTO_PATTERNS = [
+  { id: 'auto-iso-dt',   name: 'ISO DateTime',  source: 'auto', icon: '📅',
+    regexStr: '\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}:\\d{2}(?:[.,]\\d+)?(?:Z|[+-]\\d{2}:\\d{2})?' },
+  { id: 'auto-brk-time', name: 'Bracket Time',  source: 'auto', icon: '⏱',
+    regexStr: '\\[\\d{2}:\\d{2}:\\d{2}(?:[.,]\\d+)?\\]' },
+  { id: 'auto-ip',       name: 'IP Address',    source: 'auto', icon: '🌐',
+    regexStr: '\\b(?:\\d{1,3}\\.){3}\\d{1,3}\\b' },
+  { id: 'auto-uuid',     name: 'UUID',          source: 'auto', icon: '🔑',
+    regexStr: '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' },
+  { id: 'auto-pid',      name: 'PID [n]',       source: 'auto', icon: '⚙',
+    regexStr: '\\[\\d{3,7}\\]' },
+];
 
 function id(x) { return document.getElementById(x); }
 
@@ -54,6 +69,7 @@ function setTextSide(side, text, name) {
   if (side === 'a') STATE.nameA = name; else STATE.nameB = name;
   updateBadge(side);
   id(`zone-${side}`).classList.add('loaded');
+  updateLogModeButton();
   triggerDiff();
 }
 
@@ -64,6 +80,7 @@ function processFile(file, side) {
     if (side === 'a') STATE.nameA = file.name; else STATE.nameB = file.name;
     updateBadge(side);
     id(`zone-${side}`).classList.add('loaded');
+    updateLogModeButton();
     triggerDiff();
   };
   reader.readAsText(file, 'UTF-8');
@@ -99,13 +116,354 @@ function swapSides() {
 function resetAll() {
   STATE.a = null; STATE.b = null;
   STATE.nameA = ''; STATE.nameB = '';
+  STATE.logMode = false;
+  STATE.logPatterns = [];
   id('inp-a').value = ''; id('inp-b').value = '';
   id('badge-a').innerHTML = ''; id('badge-b').innerHTML = '';
   id('zone-a').classList.remove('loaded');
   id('zone-b').classList.remove('loaded');
   id('diff-hdr-slot').innerHTML = '';
   id('out').innerHTML = '';
+  updateLogModeButton();
+  const logCtrl = id('log-controls');
+  if (logCtrl) logCtrl.style.display = 'none';
+  renderLogPatternPills();
   showToast('Workspace cleared');
+}
+
+/* ============================================================
+   LOG MODE
+   ============================================================ */
+
+function toggleLogMode() {
+  STATE.logMode = !STATE.logMode;
+  if (STATE.logMode) {
+    if (STATE.logPatterns.length === 0) {
+      STATE.logPatterns = LOG_AUTO_PATTERNS.map(p => ({ ...p }));
+    }
+    id('log-controls').style.display = 'flex';
+  } else {
+    id('log-controls').style.display = 'none';
+  }
+  updateLogModeButton();
+  renderLogPatternPills();
+  if (STATE.a !== null && STATE.b !== null) triggerDiff();
+}
+
+function updateLogModeButton() {
+  const btn = id('btn-log-mode');
+  if (!btn) return;
+  const bothLoaded = STATE.a !== null && STATE.b !== null;
+  btn.disabled = !bothLoaded;
+  btn.classList.toggle('btn-log-mode--active', STATE.logMode && bothLoaded);
+}
+
+function renderLogPatternPills() {
+  const container = id('log-pattern-pills');
+  if (!container) return;
+  if (!STATE.logMode || STATE.logPatterns.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = STATE.logPatterns.map(p => `
+    <span class="log-pattern-pill ${p.source === 'auto' ? 'log-pattern-pill--auto' : 'log-pattern-pill--custom'}"
+          title="Regex: /${p.regexStr}/gi"
+          onclick="showLogPatternInfo('${p.id}')">
+      <span class="log-pill-icon">${p.icon || '📋'}</span>
+      <span class="log-pill-name">${esc(p.name)}</span>
+      <button class="log-pill-delete" onclick="event.stopPropagation(); deleteLogPattern('${p.id}')" title="Remove pattern">×</button>
+    </span>
+  `).join('');
+}
+
+function showLogPatternInfo(pid) {
+  const p = STATE.logPatterns.find(q => q.id === pid);
+  if (!p) return;
+
+  let sample = p.sampleText;
+  if (!sample) {
+    const allLines = [...(STATE.a || '').split(/\r?\n/), ...(STATE.b || '').split(/\r?\n/)];
+    try {
+      const re = new RegExp(p.regexStr, 'i');
+      sample = allLines.find(l => l.trim() && re.test(l));
+    } catch (e) {}
+  }
+  if (!sample) {
+    const DEFAULTS = {
+      'auto-iso-dt': '2026-09-10T14:22:31.445Z [INFO] [12847] 192.168.10.4 - - "GET /api/users/profile HTTP/1.1" 200 req_id=a3f7c2d1-9e4b-4f81-b2c8-0d5e6f7a8b9c',
+      'auto-brk-time': '[14:22:31.445] [INFO] [12847] 192.168.10.4 Server request processed in 45ms',
+      'auto-ip': '2026-09-10 14:22:31 [INFO] 192.168.10.4 - - "GET /api/users/profile HTTP/1.1" 200',
+      'auto-uuid': '2026-09-10 14:22:31 [INFO] req_id=a3f7c2d1-9e4b-4f81-b2c8-0d5e6f7a8b9c transaction committed',
+      'auto-pid': '2026-09-10 14:22:31 [INFO] [12847] Worker process initialized successfully'
+    };
+    sample = DEFAULTS[p.id] || '2026-09-10T14:22:31.445Z [INFO] [12847] 192.168.10.4 sample log message';
+  }
+
+  openLogPatternModal(sample, p.regexStr, p.id, p.name);
+}
+
+function deleteLogPattern(pid) {
+  STATE.logPatterns = STATE.logPatterns.filter(p => p.id !== pid);
+  renderLogPatternPills();
+  if (STATE.a !== null && STATE.b !== null) triggerDiff();
+}
+
+/* Extract non-overlapping noise spans from raw text */
+function getLogNoiseSpans(str) {
+  if (!STATE.logMode || !STATE.logPatterns || STATE.logPatterns.length === 0 || !str) return [];
+  const spans = [];
+  for (const p of STATE.logPatterns) {
+    if (!p.regexStr) continue;
+    try {
+      const re = new RegExp(p.regexStr, 'gi');
+      let m;
+      while ((m = re.exec(str)) !== null) {
+        if (m[0].length === 0) { re.lastIndex++; continue; }
+        spans.push({
+          start: m.index,
+          end: m.index + m[0].length,
+          text: m[0],
+          patternId: p.id
+        });
+      }
+    } catch (e) { /* invalid regex */ }
+  }
+
+  if (spans.length === 0) return [];
+
+  // Sort by start index ascending; if start is equal, prefer longest span
+  spans.sort((a, b) => a.start - b.start || (b.end - b.start) - (a.end - a.start));
+
+  // Resolve overlaps
+  const resolved = [];
+  let lastEnd = -1;
+  for (const span of spans) {
+    if (span.start >= lastEnd) {
+      resolved.push(span);
+      lastEnd = span.end;
+    }
+  }
+  return resolved;
+}
+
+/* Strip log noise for comparison */
+function stripLogNoise(line) {
+  if (!STATE.logMode || !STATE.logPatterns || STATE.logPatterns.length === 0 || !line) return line;
+  const spans = getLogNoiseSpans(line);
+  if (spans.length === 0) return line;
+  let result = '';
+  let cursor = 0;
+  for (const s of spans) {
+    if (s.start > cursor) result += line.substring(cursor, s.start);
+    cursor = s.end;
+  }
+  if (cursor < line.length) result += line.substring(cursor);
+  return result;
+}
+
+/* Render raw line with log noise spans dimmed */
+function renderLineWithLogNoise(str, normTabs = true) {
+  let s = str || '';
+  if (normTabs) s = s.replace(/\t/g, '    ');
+  if (!STATE.logMode || !STATE.logPatterns || STATE.logPatterns.length === 0) {
+    return processLine(s, false);
+  }
+
+  const noiseSpans = getLogNoiseSpans(s);
+  if (noiseSpans.length === 0) {
+    return processLine(s, false);
+  }
+
+  let html = '';
+  let cursor = 0;
+  for (const span of noiseSpans) {
+    if (span.start > cursor) {
+      html += processLine(s.substring(cursor, span.start), false);
+    }
+    html += `<span class="log-noise">${esc(span.text)}</span>`;
+    cursor = span.end;
+  }
+  if (cursor < s.length) {
+    html += processLine(s.substring(cursor), false);
+  }
+  return html;
+}
+
+function applyLogNoiseToHtml(html) {
+  return html;
+}
+
+/* Log Pattern Builder Modal */
+let _logSampleText = '';
+
+function handleLogPatternPaste(e) {
+  setTimeout(() => {
+    const val = id('log-pattern-input').value.trim();
+    if (val) openLogPatternModal(val);
+  }, 20);
+}
+
+function handleLogPatternDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const text = e.dataTransfer.getData('text/plain') || e.dataTransfer.getData('text');
+  if (text && text.trim()) {
+    id('log-pattern-input').value = text.trim();
+    openLogPatternModal(text.trim());
+  }
+}
+
+function openLogPatternModal(text, existingRegexStr = null, editingId = null, editingName = null) {
+  _logSampleText = text;
+  const modal = id('log-pattern-modal');
+  const editor = id('log-pattern-editor');
+  if (!editor) return;
+
+  // Tokenize and record character positions in dataset
+  const tokens = tokenizeLogLine(text);
+  let charPos = 0;
+  const tokenData = tokens.map(tok => {
+    const start = charPos;
+    charPos += tok.length;
+    return { text: tok, start, end: charPos };
+  });
+  editor.innerHTML = tokenData.map((t, i) =>
+    `<span class="lp-token" data-i="${i}" data-start="${t.start}" data-end="${t.end}"
+     onclick="handleLogTokenClick(this)">${esc(t.text)}</span>`
+  ).join('');
+
+  // Pre-mark tokens if editing an existing pattern
+  if (existingRegexStr) {
+    try {
+      const re = new RegExp(existingRegexStr, 'gi');
+      const spans = editor.querySelectorAll('.lp-token');
+      let m;
+      while ((m = re.exec(text)) !== null) {
+        if (m[0].length === 0) { re.lastIndex++; continue; }
+        const mStart = m.index, mEnd = m.index + m[0].length;
+        spans.forEach(span => {
+          const s = +span.dataset.start, en = +span.dataset.end;
+          if (s < mEnd && en > mStart) span.classList.add('lp-ignored');
+        });
+      }
+    } catch (e) { /* invalid regex */ }
+  }
+
+  // Store editing context on the modal element
+  modal.dataset.editingId = editingId || '';
+  id('log-pattern-name').value = editingName || '';
+  id('log-pattern-regex-display').textContent = existingRegexStr || '—';
+  id('log-pattern-test-preview').innerHTML = esc(text);
+  if (existingRegexStr) updateLogPatternPreview(existingRegexStr);
+  modal.style.display = 'flex';
+}
+
+function closeLogPatternModal() {
+  const modal = id('log-pattern-modal');
+  modal.style.display = 'none';
+  modal.dataset.editingId = '';
+  id('log-pattern-input').value = '';
+  _logSampleText = '';
+}
+
+function tokenizeLogLine(text) {
+  return text.match(
+    /\d{4}[-/.]\d{2}[-/.]\d{2}|[T ]?\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:Z|[+-]\d{2}:\d{2})?|\[\d{2,8}\]|(?:\d{1,3}\.){3}\d{1,3}|[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}|\w+|\s+|[^\w\s]/gi
+  ) || [text];
+}
+
+function handleLogTokenClick(span) {
+  span.classList.toggle('lp-ignored');
+  updateLogPatternPreview();
+}
+
+function clearLogSelection() {
+  const editor = id('log-pattern-editor');
+  if (editor) editor.querySelectorAll('.lp-ignored').forEach(s => s.classList.remove('lp-ignored'));
+  id('log-pattern-regex-display').textContent = '—';
+  id('log-pattern-test-preview').innerHTML = esc(_logSampleText);
+}
+
+function updateLogPatternPreview(fallbackRegex = null) {
+  const regexStr = buildRegexFromEditorState() || fallbackRegex;
+  id('log-pattern-regex-display').textContent = regexStr || '—';
+  const preview = id('log-pattern-test-preview');
+  if (!regexStr) { preview.innerHTML = esc(_logSampleText); return; }
+  try {
+    preview.innerHTML = esc(_logSampleText).replace(
+      new RegExp(regexStr, 'gi'),
+      '<span class="lp-test-match">$&</span>'
+    );
+  } catch (e) { preview.innerHTML = esc(_logSampleText); }
+}
+
+function buildRegexFromEditorState() {
+  const editor = id('log-pattern-editor');
+  if (!editor) return '';
+  const allSpans = editor.querySelectorAll('.lp-token');
+  const alternatives = [];
+  let buf = '';
+  allSpans.forEach(span => {
+    if (span.classList.contains('lp-ignored')) {
+      buf += span.textContent;
+    } else {
+      if (buf) { alternatives.push(tokenGroupToRegex(buf)); buf = ''; }
+    }
+  });
+  if (buf) alternatives.push(tokenGroupToRegex(buf));
+  return alternatives.filter(Boolean).join('|');
+}
+
+function tokenGroupToRegex(group) {
+  const t = group.trim();
+  if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}/.test(t))
+    return '\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}:\\d{2}(?:[.,]\\d+)?(?:Z|[+-]\\d{2}:\\d{2})?';
+  if (/^\d{4}[-/.]\d{2}[-/.]\d{2}$/.test(t))
+    return '\\d{4}[-/.]\\d{2}[-/.]\\d{2}';
+  if (/^\[?\d{2}:\d{2}:\d{2}(?:[.,]\d+)?\]?$/.test(t) || /^T\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:Z|[+-]\d{2}:\\d{2})?$/i.test(t))
+    return '\\[?\\d{2}:\\d{2}:\\d{2}(?:[.,]\\d+)?\\]?';
+  if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(t))
+    return '(?:\\d{1,3}\\.){3}\\d{1,3}';
+  if (/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(t))
+    return '[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}';
+  if (/^\[\d{2,8}\]$/.test(t))
+    return '\\[\\d{2,8}\\]';
+  if (/^\d+$/.test(t)) return '\\d+';
+  return group.split(/(\d+)/).map((part, i) =>
+    i % 2 === 1 ? '\\d+' : part.replace(/[-[\]{}()*+?.,\\^$|#]/g, '\\$&')
+  ).join('');
+}
+
+function saveLogPattern() {
+  const regexStr = buildRegexFromEditorState();
+  if (!regexStr) { showToast('Select tokens to ignore first', 'error'); return; }
+  try { new RegExp(regexStr); } catch (e) { showToast('Invalid regex', 'error'); return; }
+  const nameRaw = (id('log-pattern-name').value || '').trim();
+  const editingId = id('log-pattern-modal').dataset.editingId;
+
+  if (editingId) {
+    // Update existing pattern (custom or auto)
+    const idx = STATE.logPatterns.findIndex(p => p.id === editingId);
+    if (idx >= 0) {
+      STATE.logPatterns[idx] = {
+        ...STATE.logPatterns[idx],
+        name: nameRaw || STATE.logPatterns[idx].name,
+        regexStr,
+        sampleText: _logSampleText
+      };
+      showToast(`Pattern "${STATE.logPatterns[idx].name}" updated`, 'success');
+    }
+  } else {
+    // New custom pattern — ADD to existing list (keep auto-patterns)
+    const name = nameRaw || ('Custom ' + (STATE.logPatterns.filter(p => p.source === 'custom').length + 1));
+    const newPattern = { id: 'custom-' + Date.now(), name, source: 'custom', icon: '🔧', regexStr, sampleText: _logSampleText };
+    STATE.logPatterns.push(newPattern);
+    showToast(`Pattern "${name}" added`, 'success');
+  }
+
+  renderLogPatternPills();
+  closeLogPatternModal();
+  if (STATE.a !== null && STATE.b !== null) triggerDiff();
 }
 
 /* Modal Editor */
@@ -340,20 +698,64 @@ function tokenizeLine(str) {
   return str.match(/\w+|\s+|[^\w\s]/g) || (str ? [str] : []);
 }
 
+function tokenizeLineWithNoise(str) {
+  if (!str) return [];
+  if (!STATE.logMode || !STATE.logPatterns || STATE.logPatterns.length === 0) {
+    const rawTokens = tokenizeLine(str);
+    return rawTokens.map(t => ({ text: t, isNoise: false, key: t }));
+  }
+
+  const noiseSpans = getLogNoiseSpans(str);
+  if (noiseSpans.length === 0) {
+    const rawTokens = tokenizeLine(str);
+    return rawTokens.map(t => ({ text: t, isNoise: false, key: t }));
+  }
+
+  const tokens = [];
+  let cursor = 0;
+  for (const span of noiseSpans) {
+    if (span.start > cursor) {
+      const nonNoise = str.substring(cursor, span.start);
+      const raw = tokenizeLine(nonNoise);
+      for (const t of raw) {
+        tokens.push({ text: t, isNoise: false, key: t });
+      }
+    }
+    tokens.push({
+      text: span.text,
+      isNoise: true,
+      key: `__LOG_NOISE__${span.patternId}`,
+      patternId: span.patternId
+    });
+    cursor = span.end;
+  }
+  if (cursor < str.length) {
+    const nonNoise = str.substring(cursor);
+    const raw = tokenizeLine(nonNoise);
+    for (const t of raw) {
+      tokens.push({ text: t, isNoise: false, key: t });
+    }
+  }
+  return tokens;
+}
+
 // Intra-line (word-level) diff calculation with smart whitespace/tab handling
 function computeWordDiff(strA, strB, ignWS = false, normTabs = true) {
-  let cleanA = strA;
-  let cleanB = strB;
+  let cleanA = strA || '';
+  let cleanB = strB || '';
   if (normTabs) {
     cleanA = cleanA.replace(/\t/g, '    ');
     cleanB = cleanB.replace(/\t/g, '    ');
   }
 
-  const tokensA = tokenizeLine(cleanA);
-  const tokensB = tokenizeLine(cleanB);
+  const tokensA = tokenizeLineWithNoise(cleanA);
+  const tokensB = tokenizeLineWithNoise(cleanB);
 
   // When ignWS is active, normalize whitespace tokens for token comparison so tabs/spaces match
-  const normTok = t => (ignWS && /^\s+$/.test(t)) ? ' ' : t;
+  const normTok = t => {
+    if (t.isNoise) return t.key;
+    return (ignWS && /^\s+$/.test(t.text)) ? ' ' : t.key;
+  };
   const mappedA = tokensA.map(normTok);
   const mappedB = tokensB.map(normTok);
   const ops = myers(mappedA, mappedB);
@@ -361,21 +763,32 @@ function computeWordDiff(strA, strB, ignWS = false, normTabs = true) {
   let htmlA = '', htmlB = '';
   for (const op of ops) {
     if (op.t === '=') {
-      htmlA += postFormat(esc(tokensA[op.a]));
-      htmlB += postFormat(esc(tokensB[op.b]));
+      const tokA = tokensA[op.a];
+      const tokB = tokensB[op.b];
+      if (tokA.isNoise) {
+        htmlA += `<span class="log-noise">${esc(tokA.text)}</span>`;
+        htmlB += `<span class="log-noise">${esc(tokB.text)}</span>`;
+      } else {
+        htmlA += postFormat(esc(tokA.text));
+        htmlB += postFormat(esc(tokB.text));
+      }
     } else if (op.t === '-') {
       const tok = tokensA[op.a];
-      if (ignWS && /^\s+$/.test(tok)) {
-        htmlA += esc(tok);
+      if (tok.isNoise) {
+        htmlA += `<span class="log-noise">${esc(tok.text)}</span>`;
+      } else if (ignWS && /^\s+$/.test(tok.text)) {
+        htmlA += esc(tok.text);
       } else {
-        htmlA += `<span class="diff-word-del">${postFormat(esc(tok))}</span>`;
+        htmlA += `<span class="diff-word-del">${postFormat(esc(tok.text))}</span>`;
       }
     } else if (op.t === '+') {
       const tok = tokensB[op.b];
-      if (ignWS && /^\s+$/.test(tok)) {
-        htmlB += esc(tok);
+      if (tok.isNoise) {
+        htmlB += `<span class="log-noise">${esc(tok.text)}</span>`;
+      } else if (ignWS && /^\s+$/.test(tok.text)) {
+        htmlB += esc(tok.text);
       } else {
-        htmlB += `<span class="diff-word-add">${postFormat(esc(tok))}</span>`;
+        htmlB += `<span class="diff-word-add">${postFormat(esc(tok.text))}</span>`;
       }
     }
   }
@@ -419,13 +832,13 @@ function calculateSimilarity(textA, textB, ops, linesA, linesB) {
         totalUnitsB += lenB;
 
         // Intra-line match for modified line pairs
-        const tokA = tokenizeLine(strA);
-        const tokB = tokenizeLine(strB);
+        const tokA = STATE.logMode ? tokenizeLineWithNoise(strA) : tokenizeLine(strA).map(t => ({ text: t, key: t }));
+        const tokB = STATE.logMode ? tokenizeLineWithNoise(strB) : tokenizeLine(strB).map(t => ({ text: t, key: t }));
         if (tokA.length <= 300 && tokB.length <= 300) {
-          const wordOps = myers(tokA, tokB);
+          const wordOps = myers(tokA.map(t => t.key), tokB.map(t => t.key));
           let matchedLen = 0;
           wordOps.forEach(wOp => {
-            if (wOp.t === '=') matchedLen += tokA[wOp.a].length;
+            if (wOp.t === '=') matchedLen += tokA[wOp.a].text.length;
           });
           matchedUnits += matchedLen;
         }
@@ -567,6 +980,7 @@ function runDiff() {
     if (ignWS) {
       t = t.trim().replace(/\s+/g, ' ');
     }
+    if (STATE.logMode) t = stripLogNoise(t);
     return t;
   };
 
@@ -621,11 +1035,12 @@ function renderSplit(hunks, linesA, linesB, ignWS, normTabs, isFull = false) {
     while (i < hunk.length) {
       const op = hunk[i];
       if (op.t === '=') {
-        const v = processLine(linesA[op.a], normTabs);
+        const vA = renderLineWithLogNoise(linesA[op.a], normTabs);
+        const vB = renderLineWithLogNoise(linesB[op.b], normTabs);
         html += `<tr class="row-ctx">
-          <td class="ln">${op.a+1}</td><td class="code">${v}</td>
+          <td class="ln">${op.a+1}</td><td class="code">${vA}</td>
           <td style="background:var(--border)"></td>
-          <td class="ln">${op.b+1}</td><td class="code">${v}</td>
+          <td class="ln">${op.b+1}</td><td class="code">${vB}</td>
         </tr>`;
         STATE.minimapRows.push({ type: 'ctx', text: linesA[op.a] || '', lineA: op.a+1, lineB: op.b+1 });
         i++;
@@ -654,7 +1069,7 @@ function renderSplit(hunks, linesA, linesB, ignWS, normTabs, isFull = false) {
           } else if (d) {
             // Unpaired deletion (left only)
             html += `<tr class="row-del">
-              <td class="ln cell-del-ln">${d.a+1}</td><td class="code cell-del-bg">${processLine(linesA[d.a], normTabs)}</td>
+              <td class="ln cell-del-ln">${d.a+1}</td><td class="code cell-del-bg">${renderLineWithLogNoise(linesA[d.a], normTabs)}</td>
               <td style="background:var(--border)"></td>
               <td class="ln"></td><td class="code"></td>
             </tr>`;
@@ -664,7 +1079,7 @@ function renderSplit(hunks, linesA, linesB, ignWS, normTabs, isFull = false) {
             html += `<tr class="row-add">
               <td class="ln"></td><td class="code"></td>
               <td style="background:var(--border)"></td>
-              <td class="ln cell-add-ln">${a.b+1}</td><td class="code cell-add-bg">${processLine(linesB[a.b], normTabs)}</td>
+              <td class="ln cell-add-ln">${a.b+1}</td><td class="code cell-add-bg">${renderLineWithLogNoise(linesB[a.b], normTabs)}</td>
             </tr>`;
             STATE.minimapRows.push({ type: 'add', text: linesB[a.b] || '', lineB: a.b+1 });
           }
@@ -686,7 +1101,7 @@ function renderUnified(hunks, linesA, linesB, ignWS, normTabs) {
     while (i < hunk.length) {
       const op = hunk[i];
       if (op.t === '=') {
-        html += `<tr class="row-ctx"><td class="ln">${op.a+1}</td><td class="ln">${op.b+1}</td><td class="code">  ${processLine(linesA[op.a], normTabs)}</td></tr>`;
+        html += `<tr class="row-ctx"><td class="ln">${op.a+1}</td><td class="ln">${op.b+1}</td><td class="code">  ${renderLineWithLogNoise(linesA[op.a], normTabs)}</td></tr>`;
         STATE.minimapRows.push({ type: 'ctx', text: linesA[op.a] || '', lineA: op.a+1, lineB: op.b+1 });
         i++;
       } else {
@@ -699,18 +1114,22 @@ function renderUnified(hunks, linesA, linesB, ignWS, normTabs) {
         }
         dels.forEach((d, idx) => {
           const pairedAdd = adds[idx];
-          let codeHtml = processLine(linesA[d.a], normTabs);
+          let codeHtml = '';
           if (pairedAdd) {
             codeHtml = computeWordDiff(linesA[d.a], linesB[pairedAdd.b], ignWS, normTabs).htmlA;
+          } else {
+            codeHtml = renderLineWithLogNoise(linesA[d.a], normTabs);
           }
           html += `<tr class="row-del"><td class="ln cell-del-ln">${d.a+1}</td><td class="ln"></td><td class="code cell-del-bg">- ${codeHtml}</td></tr>`;
           STATE.minimapRows.push({ type: 'del', text: linesA[d.a] || '', lineA: d.a+1 });
         });
         adds.forEach((a, idx) => {
           const pairedDel = dels[idx];
-          let codeHtml = processLine(linesB[a.b], normTabs);
+          let codeHtml = '';
           if (pairedDel) {
             codeHtml = computeWordDiff(linesA[pairedDel.a], linesB[a.b], ignWS, normTabs).htmlB;
+          } else {
+            codeHtml = renderLineWithLogNoise(linesB[a.b], normTabs);
           }
           html += `<tr class="row-add"><td class="ln"></td><td class="ln cell-add-ln">${a.b+1}</td><td class="code cell-add-bg">+ ${codeHtml}</td></tr>`;
           STATE.minimapRows.push({ type: 'add', text: linesB[a.b] || '', lineB: a.b+1 });

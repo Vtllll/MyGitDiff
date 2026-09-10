@@ -7,6 +7,5 @@ agents.md
 Thumbs.db
 desktop.ini
 *.tmp
-*.log
 node_modules/
 scratch/

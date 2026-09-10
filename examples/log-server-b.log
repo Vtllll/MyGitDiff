@@ -1,0 +1,40 @@
+﻿2026-09-10T17:55:03.112Z [INFO]  [13204] 192.168.10.9 - - "GET /api/users/profile HTTP/1.1" 200 req_id=f9e2b5a4-1c8d-4e72-a3f6-7b8c9d0e1f2a
+2026-09-10T17:55:03.114Z [DEBUG] [13204] Auth header verified for user_id=8821 from 192.168.10.9
+2026-09-10T17:55:03.116Z [DEBUG] [13204] Cache MISS for key=user:8821:profile (TTL expired 14s ago)
+2026-09-10T17:55:03.118Z [DEBUG] [13204] DB query started: SELECT * FROM users WHERE id=8821 (pool=primary, timeout=5000ms)
+2026-09-10T17:55:03.289Z [WARN]  [13204] DB query slow: 171ms (threshold=100ms), rows=1
+2026-09-10T17:55:03.290Z [INFO]  [13204] Cache SET user:8821:profile TTL=300s
+2026-09-10T17:55:03.291Z [INFO]  [13204] Response 200 OK in 179ms — payload=1.2KB
+2026-09-10T17:55:03.291Z [INFO]  [13204] req_id=f9e2b5a4-1c8d-4e72-a3f6-7b8c9d0e1f2a completed
+
+2026-09-10T17:55:04.500Z [INFO]  [13204] 10.0.0.71 - - "POST /api/orders HTTP/1.1" 500 req_id=e1d0c9b8-7a6f-45e4-3d2c-1b0a9f8e7d6c
+2026-09-10T17:55:04.502Z [DEBUG] [13204] Validating order payload: items=3, total=149.90 USD
+2026-09-10T17:55:04.503Z [DEBUG] [13204] Auth header verified for user_id=8821 from 10.0.0.71
+2026-09-10T17:55:04.504Z [DEBUG] [13204] Transaction BEGIN on db=orders_primary
+2026-09-10T17:55:04.508Z [DEBUG] [13204] INSERT INTO orders (user_id, total, status) VALUES (8821, 149.90, 'pending')
+2026-09-10T17:55:04.521Z [DEBUG] [13204] INSERT INTO order_items (order_id, sku, qty, price) — 3 rows inserted
+2026-09-10T17:55:04.523Z [ERROR] [13204] Inventory check FAILED for SKU=PRD-048: quantity=0 (out of stock)
+2026-09-10T17:55:04.524Z [DEBUG] [13204] Transaction ROLLBACK — inventory constraint violated
+2026-09-10T17:55:04.525Z [ERROR] [13204] Order creation failed: InsufficientInventoryError at OrderService.create line 87
+2026-09-10T17:55:04.526Z [INFO]  [13204] Event published: order.failed to queue=orders-events, partition=3
+2026-09-10T17:55:04.527Z [INFO]  [13204] Response 500 Internal Server Error in 27ms
+2026-09-10T17:55:04.527Z [INFO]  [13204] req_id=e1d0c9b8-7a6f-45e4-3d2c-1b0a9f8e7d6c completed
+
+2026-09-10T17:55:06.330Z [INFO]  [13205] 172.16.0.3 - - "GET /api/products?category=shoes&page=2 HTTP/1.1" 200 req_id=d7c6b5a4-3e2f-41d0-9c8b-7a6f5e4d3c2b
+2026-09-10T17:55:06.332Z [DEBUG] [13205] Cache MISS for key=products:shoes:page:2 (key evicted by OOM pressure)
+2026-09-10T17:55:06.334Z [DEBUG] [13205] DB query started: SELECT * FROM products WHERE category='shoes' LIMIT 20 OFFSET 20
+2026-09-10T17:55:06.389Z [DEBUG] [13205] DB query finished in 55ms, rows=20
+2026-09-10T17:55:06.391Z [INFO]  [13205] Cache SET products:shoes:page:2 TTL=60s
+2026-09-10T17:55:06.392Z [INFO]  [13205] Response 200 OK in 62ms — payload=28.4KB
+2026-09-10T17:55:06.392Z [INFO]  [13205] req_id=d7c6b5a4-3e2f-41d0-9c8b-7a6f5e4d3c2b completed
+
+2026-09-10T17:55:08.001Z [INFO]  [13205] 10.0.0.71 - - "DELETE /api/orders/58820 HTTP/1.1" 403 req_id=c3b2a1f0-9e8d-47c6-5b4a-3f2e1d0c9b8a
+2026-09-10T17:55:08.002Z [DEBUG] [13205] Auth header verified, role=user for user_id=9934 from 10.0.0.71
+2026-09-10T17:55:08.003Z [ERROR] [13205] Authorization DENIED: user_id=9934 attempted to delete order_id=58820 (owner=user:1001)
+2026-09-10T17:55:08.004Z [WARN]  [13205] Suspicious activity: unauthorized delete attempt logged for user_id=9934
+2026-09-10T17:55:08.005Z [INFO]  [13205] Response 403 Forbidden in 4ms
+2026-09-10T17:55:08.005Z [INFO]  [13205] req_id=c3b2a1f0-9e8d-47c6-5b4a-3f2e1d0c9b8a completed
+
+2026-09-10T17:55:10.000Z [WARN]  [13204] Health check: db=ok redis=DEGRADED queue=ok uptime=1h22m
+2026-09-10T17:55:10.001Z [WARN]  [13204] Memory usage: heap=389MB/512MB rss=451MB (HIGH — GC pressure detected)
+2026-09-10T17:55:10.002Z [INFO]  [13204] Active connections: http=38 db_pool=9/10 redis=2

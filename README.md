@@ -1,6 +1,6 @@
 # ⚡ MyGitDiff (Diff Analyzer)
 
-> **A blazing-fast, privacy-first, zero-dependency Git diff viewer with VS Code aesthetics — runs completely in your browser.**
+> **A blazing-fast, privacy-first, zero-dependency Git diff and Log analyzer with VS Code aesthetics — runs completely in your browser.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Zero Dependencies](https://img.shields.io/badge/Dependencies-0-brightgreen.svg)](#)
@@ -15,7 +15,9 @@
 
 ## 💡 Why This Project?
 
-**MyGitDiff** was created for situations where different versions of code or files are kept separately without a shared Git commit history. It provides an instant, privacy-first way to inspect and compare discrepancies between independent files or code snippets — with zero setup, zero CLI dependencies, and no cloud uploads.
+**MyGitDiff** was created for situations where different versions of code, files, or application logs are kept separately without a shared Git commit history. It provides an instant, privacy-first way to inspect and compare discrepancies between independent snippets — with zero setup, zero CLI dependencies, and no cloud uploads.
+
+A major focus of this tool is **Log Analysis**: you can effortlessly compare a successful log and a failed log by simply pasting them into the browser. With **Smart Log Mode and auto-patterns**, volatile data (like timestamps or PIDs) is automatically ignored so you can spot the actual error instantly — all without ever needing to save a file, create a throwaway Git branch, or commit anything.
 
 ### 🎯 Use Cases
 - **Files in `.gitignore`** — inspect files normally ignored by Git
@@ -34,6 +36,25 @@
 ---
 
 ## ✨ Features
+
+- 🪵 **Smart Log Mode (Automated Log Diffing)** — Compare heavy production logs without getting blinded by volatile noise on every line.
+  - **Automated High-Frequency Noise Stripping**: Out of the box, MyGitDiff recognizes and strips volatile fields before diffing:
+    - 📅 **ISO DateTime**: `2026-09-10T14:22:31.445Z`
+    - ⏱ **Bracket Time**: `[14:22:31.445]`
+    - 🌐 **IPv4 Addresses**: `192.168.10.4`
+    - 🔑 **UUIDs / GUIDs**: `a3f7c2d1-9e4b-4f81-b2c8-0d5e6f7a8b9c`
+    - ⚙ **Process IDs (PID)**: `[12847]`
+  - **Semantic Intra-Line Highlighting**: Unlike conventional diff tools that highlight every line because timestamps never match, MyGitDiff aligns log structures, dims volatile tokens as background context (`.log-noise`), and highlights **strictly the genuine discrepancies** — HTTP status codes (`200` vs `500`), exception messages, query durations, and unexpected payload mutations.
+  
+  ![Smart Log Mode Comparison](Pictures/AutoLogMode.png)
+
+  - **Interactive Pattern Pills**: Easily inspect, toggle, or remove noise rules on the fly with badge pills:
+  
+  ![Active Pattern Control Row](Pictures/AutoPattern.png)
+
+  - **Visual Log Pattern Builder**: Paste or drag & drop any log line directly into `CHANGE PATTERN`. Click tokens to mark them as ignored, auto-generate fine-tuned regex patterns, and preview live matches before saving custom rules:
+  
+  ![Visual Log Pattern Builder Modal](Pictures/ManualPattern.png)
 
 - 🚀 **100% Client-Side & Private** — No server calls, no telemetry, no data leaks. Your source code never leaves your computer.
 - 🔀 **Split, Unified & Full Views** — Switch between 2-column side-by-side split view, unified linear diff, or Full View (shows entire files with all lines and whitespace preserved).
@@ -70,6 +91,9 @@
    ```
 2. Double-click `dist/git-diff.html` in any modern web browser (Chrome, Edge, Firefox, Safari, Brave).
 3. **Try the Demo Examples** in `examples/`:
+   - **Server Log Showcase (Smart Log Mode with automated timestamp & noise stripping)**:
+     - `examples/log-server-a.log` & `examples/log-server-b.log`
+     - *Turn on "LOG MODE" to eliminate timestamp, PID, and IP noise, revealing only genuine server failures, latency spikes, and status differences.*
    - **Feature Showcase (Comprehensive diff capabilities)**:
      - `examples/sample-v1.js` & `examples/sample-v2.js`
    - **Multi-Language Showcase (5 languages compared simultaneously with brand badges)**:

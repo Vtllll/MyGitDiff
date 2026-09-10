@@ -1,0 +1,37 @@
+﻿2026-09-10T14:22:31.445Z [INFO]  [12847] 192.168.10.4 - - "GET /api/users/profile HTTP/1.1" 200 req_id=a3f7c2d1-9e4b-4f81-b2c8-0d5e6f7a8b9c
+2026-09-10T14:22:31.447Z [DEBUG] [12847] Auth header verified for user_id=8821 from 192.168.10.4
+2026-09-10T14:22:31.449Z [DEBUG] [12847] Cache MISS for key=user:8821:profile (TTL expired 14s ago)
+2026-09-10T14:22:31.451Z [DEBUG] [12847] DB query started: SELECT * FROM users WHERE id=8821 (pool=primary, timeout=5000ms)
+2026-09-10T14:22:31.487Z [DEBUG] [12847] DB query finished in 36ms, rows=1
+2026-09-10T14:22:31.488Z [INFO]  [12847] Cache SET user:8821:profile TTL=300s
+2026-09-10T14:22:31.490Z [INFO]  [12847] Response 200 OK in 45ms — payload=1.2KB
+2026-09-10T14:22:31.490Z [INFO]  [12847] req_id=a3f7c2d1-9e4b-4f81-b2c8-0d5e6f7a8b9c completed
+
+2026-09-10T14:22:32.011Z [INFO]  [12847] 10.0.0.55 - - "POST /api/orders HTTP/1.1" 201 req_id=b8e1d4f2-3a5c-47d9-8e0f-1c2d3e4f5a6b
+2026-09-10T14:22:32.013Z [DEBUG] [12847] Validating order payload: items=3, total=149.90 USD
+2026-09-10T14:22:32.013Z [DEBUG] [12847] Auth header verified for user_id=8821 from 10.0.0.55
+2026-09-10T14:22:32.015Z [DEBUG] [12847] Transaction BEGIN on db=orders_primary
+2026-09-10T14:22:32.019Z [DEBUG] [12847] INSERT INTO orders (user_id, total, status) VALUES (8821, 149.90, 'pending')
+2026-09-10T14:22:32.031Z [DEBUG] [12847] INSERT INTO order_items (order_id, sku, qty, price) — 3 rows inserted
+2026-09-10T14:22:32.035Z [DEBUG] [12847] Inventory check passed for SKU=PRD-001, PRD-048, PRD-112
+2026-09-10T14:22:32.038Z [DEBUG] [12847] Transaction COMMIT success, order_id=58821
+2026-09-10T14:22:32.039Z [INFO]  [12847] Event published: order.created to queue=orders-events, partition=3
+2026-09-10T14:22:32.041Z [INFO]  [12847] Response 201 Created in 30ms — order_id=58821
+2026-09-10T14:22:32.041Z [INFO]  [12847] req_id=b8e1d4f2-3a5c-47d9-8e0f-1c2d3e4f5a6b completed
+
+2026-09-10T14:22:34.771Z [INFO]  [12848] 172.16.0.3 - - "GET /api/products?category=shoes&page=2 HTTP/1.1" 200 req_id=c4a9e8b7-6d2f-41e5-9c3a-8b7d6e5f4a3b
+2026-09-10T14:22:34.773Z [DEBUG] [12848] Cache HIT for key=products:shoes:page:2 (age=18s)
+2026-09-10T14:22:34.774Z [INFO]  [12848] Response 200 OK in 3ms — payload=28.4KB (cached)
+2026-09-10T14:22:34.774Z [INFO]  [12848] req_id=c4a9e8b7-6d2f-41e5-9c3a-8b7d6e5f4a3b completed
+
+2026-09-10T14:22:35.100Z [INFO]  [12849] 10.0.0.55 - - "DELETE /api/orders/58820 HTTP/1.1" 204 req_id=d5b0f9c8-7e3a-42f6-0d4b-9c8e7f6a5b4c
+2026-09-10T14:22:35.101Z [DEBUG] [12849] Auth header verified, role=admin for user_id=1001 from 10.0.0.55
+2026-09-10T14:22:35.103Z [DEBUG] [12849] Soft-delete: UPDATE orders SET deleted_at=NOW() WHERE id=58820
+2026-09-10T14:22:35.109Z [DEBUG] [12849] Audit log written: action=order.deleted order_id=58820 by=user:1001
+2026-09-10T14:22:35.110Z [INFO]  [12849] Event published: order.deleted to queue=orders-events, partition=2
+2026-09-10T14:22:35.111Z [INFO]  [12849] Response 204 No Content in 11ms
+2026-09-10T14:22:35.111Z [INFO]  [12849] req_id=d5b0f9c8-7e3a-42f6-0d4b-9c8e7f6a5b4c completed
+
+2026-09-10T14:22:40.000Z [INFO]  [12847] Health check: db=ok redis=ok queue=ok uptime=3h47m
+2026-09-10T14:22:40.001Z [INFO]  [12847] Memory usage: heap=124MB/512MB rss=198MB
+2026-09-10T14:22:40.002Z [INFO]  [12847] Active connections: http=14 db_pool=4/10 redis=2
