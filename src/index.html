@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MyGitDiff — VS Code Style Diff Viewer</title>
+<link rel="stylesheet" href="styles.css">
+
+</head>
+<body>
+
+<!-- Sticky Header Container (Pins Topbar, Upload Zones, Controls, and Diff Header at top) -->
+<div class="sticky-header-container" id="sticky-header">
+  <div class="topbar">
+    <div class="brand">
+      <span class="logo-badge">DIFF</span>
+      <span class="t-title">MyGitDiff</span>
+      <span class="t-sep">/</span>
+      <span class="t-sub">File &amp; Code Diff Viewer</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-secondary btn-sm" onclick="exportPatch()" id="btn-export-patch" title="Copy unified Git Patch">
+        📋 Copy Patch
+      </button>
+      <button class="btn btn-secondary btn-sm" onclick="openTextModal()" title="Manual text input or code editor">
+        ✏️ Text Editor
+      </button>
+    </div>
+  </div>
+
+  <div class="upload-wrap">
+    <div class="upload-row">
+      <!-- Zone A -->
+      <div class="zone" id="zone-a" ondrop="handleDrop(event, 'a')" oncontextmenu="handleZoneRightClick(event, 'a')">
+        <input type="file" id="inp-a" class="zone-file-input" onchange="handleFileChange(event, 'a')">
+        <div class="z-info">
+          <span class="z-icon">📄</span>
+          <span class="z-label">Original File (A)</span>
+          <span id="badge-a"></span>
+        </div>
+        <div class="z-actions">
+          <button class="btn btn-secondary btn-sm" onclick="triggerFileInput('a')">📂 Choose File</button>
+          <button class="btn btn-secondary btn-sm" onclick="pasteClipboardSide('a')">📋 Paste</button>
+        </div>
+      </div>
+
+      <!-- Zone B -->
+      <div class="zone" id="zone-b" ondrop="handleDrop(event, 'b')" oncontextmenu="handleZoneRightClick(event, 'b')">
+        <input type="file" id="inp-b" class="zone-file-input" onchange="handleFileChange(event, 'b')">
+        <div class="z-info">
+          <span class="z-icon">📝</span>
+          <span class="z-label">Modified File (B)</span>
+          <span id="badge-b"></span>
+        </div>
+        <div class="z-actions">
+          <button class="btn btn-secondary btn-sm" onclick="triggerFileInput('b')">📂 Choose File</button>
+          <button class="btn btn-secondary btn-sm" onclick="pasteClipboardSide('b')">📋 Paste</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Controls Toolbar -->
+    <div class="controls">
+      <div class="controls-left">
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="btn-split" onclick="setView('split')">Split View</button>
+          <button class="toggle-btn" id="btn-unified" onclick="setView('unified')">Unified View</button>
+          <button class="toggle-btn" id="btn-full" onclick="setView('full')">Full View</button>
+        </div>
+
+        <button class="btn btn-secondary btn-sm" onclick="swapSides()" title="Swap File A and File B">Swap</button>
+
+        <button class="btn btn-secondary btn-sm" onclick="resetAll()" title="Clear workspace">
+          🗑️ Clear
+        </button>
+      </div>
+
+      <div class="controls-right">
+        <label class="chk-label" title="Treat tabs as equivalent spaces (Tab ⇄ Spaces)">
+          <input type="checkbox" id="tab-norm-chk" checked onchange="triggerDiff()">
+          Normalize Tabs
+        </label>
+
+        <label class="chk-label" title="Ignore whitespace & indentation differences (Alt+W)">
+          <input type="checkbox" id="ws-chk" onchange="triggerDiff()">
+          Ignore Whitespace
+        </label>
+
+        <label class="chk-label" title="Wrap long lines to prevent horizontal scrolling (Alt+R)">
+          <input type="checkbox" id="wrap-chk" checked onchange="toggleWordWrap()">
+          Word Wrap
+        </label>
+
+        <label class="chk-label" title="Toggle VS Code style minimap overview (Alt+M)">
+          <input type="checkbox" id="minimap-chk" checked onchange="toggleMinimap()">
+          Minimap
+        </label>
+      </div>
+    </div>
+
+    <!-- Diff Header Slot (File names, stats, language) -->
+    <div id="diff-hdr-slot"></div>
+  </div>
+</div>
+
+<div id="out"></div>
+
+<!-- Modal Manual Editor -->
+<div class="modal-overlay" id="text-modal" style="display:none;" onclick="if(event.target===this) closeTextModal()">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div class="modal-title">✏️ Manual Code &amp; Text Editor</div>
+      <button class="btn-close" onclick="closeTextModal()" title="Close">✕</button>
+    </div>
+    <div class="modal-alert-banner">
+      <span>⚠️</span>
+      <span><strong>Notice:</strong> This editor only modifies code within your browser session — it <strong>does not modify</strong> the original files on your computer disk.</span>
+    </div>
+    <div class="modal-body">
+      <div class="modal-col">
+        <div class="modal-col-hdr">
+          <span>Original File (A)</span>
+          <button class="btn btn-secondary btn-sm" onclick="pasteIntoModal('a')">📋 Paste Clipboard</button>
+        </div>
+        <textarea id="modal-text-a" class="modal-textarea" spellcheck="false" placeholder="Paste or type original code here..."></textarea>
+      </div>
+      <div class="modal-col">
+        <div class="modal-col-hdr">
+          <span>Modified File (B)</span>
+          <button class="btn btn-secondary btn-sm" onclick="pasteIntoModal('b')">📋 Paste Clipboard</button>
+        </div>
+        <textarea id="modal-text-b" class="modal-textarea" spellcheck="false" placeholder="Paste or type modified code here..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeTextModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="applyTextModal()">Compare Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast">Notification</div>
+
+<script src="app.js"></script>
+
+</body>
+</html>

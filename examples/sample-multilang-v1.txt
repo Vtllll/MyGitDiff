@@ -1,0 +1,91 @@
+// ============================================================================
+// MyGitDiff Multi-Language Demonstration (Version 1)
+// Contains 5 distinct languages in a single comparison file
+// ============================================================================
+
+// ============================================================================
+// [Language: C++]
+// ============================================================================
+#include <iostream>
+#include <vector>
+#include <string>
+
+#define BUFFER_SIZE 512
+constexpr uint32_t MAX_CLIENTS = 16;
+
+class ServerNode {
+public:
+    ServerNode(const std::string& host, int port)
+        : m_host(host), m_port(port) {}
+
+    bool startListening() {
+        std::cout << "Listening on " << m_host << ":" << m_port << "\n";
+        return true;
+    }
+private:
+    std::string m_host;
+    int m_port;
+};
+
+// ----------------------------------------------------------------------------
+// [Language: Python]
+// ----------------------------------------------------------------------------
+import time
+from typing import List, Dict
+
+API_TIMEOUT_SECONDS = 15
+DEBUG_MODE = False
+
+def calculate_analytics(values: List[float]) -> Dict[str, float]:
+    total_sum = sum(values)
+    avg_value = total_sum / max(len(values), 1)
+    return {
+        "count": float(len(values)),
+        "average": round(avg_value, 2)
+    }
+
+// ----------------------------------------------------------------------------
+// [Language: JavaScript]
+// ----------------------------------------------------------------------------
+const DEFAULT_CURRENCY = "USD";
+const TAX_RATE_PERCENT = 8.5;
+
+function processOrderInvoice(orderId, items) {
+    const subtotal = items.reduce((sum, item) => sum + item.price, 0);
+    const tax = (subtotal * TAX_RATE_PERCENT) / 100;
+    return {
+        id: orderId,
+        total: subtotal + tax,
+        status: "PENDING_PAYMENT"
+    };
+}
+
+// ----------------------------------------------------------------------------
+// [Language: Go]
+// ----------------------------------------------------------------------------
+package main
+
+import "fmt"
+
+type WorkerPool struct {
+    MaxWorkers int
+    QueueLimit int
+}
+
+func NewWorkerPool(workers int) *WorkerPool {
+    return &WorkerPool{
+        MaxWorkers: workers,
+        QueueLimit: 100,
+    }
+}
+
+// ----------------------------------------------------------------------------
+// [Language: HTML]
+// ----------------------------------------------------------------------------
+<section class="user-dashboard">
+    <div class="user-card active">
+        <h3 class="user-name">Alex Miller</h3>
+        <p class="user-role">Basic Account</p>
+        <button class="btn-primary">View Profile</button>
+    </div>
+</section>

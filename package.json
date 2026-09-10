@@ -1,0 +1,16 @@
+{
+  "name": "mygitdiff",
+  "version": "1.0.0",
+  "description": "Single-file VS Code style Git Diff Viewer",
+  "scripts": {
+    "start": "npx serve .",
+    "build": "node build.js",
+    "test": "node test/diff.test.js"
+  },
+  "author": "Vital",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Vtllll/MyGitDiff.git"
+  }
+}
